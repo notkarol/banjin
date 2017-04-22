@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
@@ -42,7 +43,7 @@ def plot_tile_positions(args, Y, n_offset, d_off_x, d_off_y):
     y = np.linspace(-n_offset, n_offset, n_offset * 2 + 1)
     xv, yv = np.meshgrid(x, y)
     for i in range(len(Y)):
-        if Y[i, 0]:
+        if Y[i, 0] == 0:
             count_blank[d_off_y[i] + n_offset, d_off_x[i] + n_offset] += 1
         else:
             count_letter[d_off_y[i] + n_offset, d_off_x[i] + n_offset] += 1
@@ -108,8 +109,6 @@ def plot_fonts(args, range_font_sizes, font_filenames, imgs):
     plt.savefig('plots/%s-fonts.png' % args.name, dpi=160, bbox_inches='tight')
 
 def plot_generation(args, n, bg, X, Y, d_letters):
-    
-    # Prepare figure
     m = 7
     fig, axs = plt.subplots(n, m) ; fig.set_size_inches(m, n)
     for i in range(n):
@@ -126,10 +125,10 @@ def plot_generation(args, n, bg, X, Y, d_letters):
     axs[0][6].set_title('Crop')
 
     for i in range(n):
-        axs[i][0].set_ylabel('%c %.2f' % (d_letters[i], Y[i, -1]))
+        axs[i][0].set_ylabel('%c %.2f' % (d_letters[i], Y[i, 1]))
         for j in range(m - 1):
             axs[i][j].imshow(bg[i, j], interpolation="nearest", vmin=0, vmax=255, cmap=plt.get_cmap('gray'))
-        axs[i][m - 1].imshow(X[i], interpolation="nearest", vmin=0, vmax=255, cmap=plt.get_cmap('gray'))
+        axs[i][m - 1].imshow(X[i, 0], interpolation="nearest", vmin=0, vmax=255, cmap=plt.get_cmap('gray'))
 
     plt.savefig('plots/%s-generation.png' % args.name, dpi=160, bbox_inches='tight')
     
@@ -143,20 +142,21 @@ def main():
     n_offset = (args.n_bg_pixels - args.n_fg_pixels) // 2
 
     # Dataset X and Y
-    X = np.zeros((args.n_images, args.n_fg_pixels, args.n_fg_pixels, 1), dtype=np.uint8)
-    Y = np.zeros((args.n_images, len(args.glyphs) + 1), dtype=np.float32)
+    X = np.zeros((args.n_images, 1, args.n_fg_pixels, args.n_fg_pixels), dtype=np.uint8)
+    Y = np.zeros((args.n_images, 2), dtype=np.float32)
 
     # Prepare Y by filling the one-hot class in the first len(letter) columns and then the normalized distance in the last column
-    labels = np.random.randint(1, len(args.glyphs), size=args.n_images) * (np.random.rand(args.n_images) < args.p_letter)
+    labels = (np.random.randint(1, len(args.glyphs), size=args.n_images) *
+              (np.random.rand(args.n_images) < args.p_letter))
     for i, label in enumerate(labels):
-        Y[i, label] = 1
+        Y[i, 0] = label
 
     ## Prepare background
     # Generate the shapes for the background
     d_bg_median_blur = np.random.choice(np.arange(3, args.n_bg_pixels // 4 + 1, 2), size=args.n_images)
 
     # Whether to show a tile or not. Always true for tiles, True half the time for blank tiles
-    d_show_tile = np.logical_or(np.random.rand(args.n_images) < 0.5, Y[:, 0] == 0)
+    d_show_tile = np.logical_or(np.random.rand(args.n_images) < 0.5, Y[:, 0] > 0)
 
     # The size of the shadow
     d_shadow_x = np.random.randint(-args.n_fg_pixels // 16, args.n_fg_pixels // 16 + 1, size=args.n_images)
@@ -191,14 +191,14 @@ def main():
     # Should probably figure out a heuristic to tie in warps
     y = d_off_y - (np.mean(d_warp[:, :, 1] - corners[:,1], axis=1) // 4)
     x = d_off_x - (np.mean(d_warp[:, :, 0] - corners[:,0], axis=1) // 4)
-    Y[:, -1] = np.sqrt(x * x + y * y)
-    Y[:, -1] /= np.max(Y[Y[:, 0] > 0, -1])
-    Y[:, -1] = np.clip(Y[:, -1], 0, 1.0)
-    Y[Y[:, 0] == 1, -1] = 1.0
+    Y[:, 1] = np.sqrt(x * x + y * y)
+    Y[:, 1] /= np.max(Y[Y[:, 0] > 0, -1])
+    Y[:, 1] = np.clip(Y[:, -1], 0, 1.0)
+    Y[Y[:, 0] == 0, 1] = 1.0
 
     n_half_offset = n_offset // 2 + 2
     for i in range(args.n_images):
-        if Y[i, 0]:
+        if Y[i, 0] == 0:
             off = np.array(np.random.rand(2) * args.n_fg_pixels + 0.5, dtype=np.int) - (args.n_fg_pixels // 2)
             while (-n_half_offset <= off[0] <= n_half_offset) and (-n_half_offset <= off[1] <= n_half_offset):
                 off = np.array(np.random.rand(2) * args.n_fg_pixels + 0.5, dtype=np.int) - (args.n_fg_pixels // 2)
@@ -209,8 +209,9 @@ def main():
     # occasionally make it a letter to show very offset tiles
     d_letters = [''] * args.n_images
     for i in range(args.n_images):
-        d_letters[i] = args.glyphs[np.argmax(Y[i]) if np.argmax(Y[i]) else
-                                   np.random.randint(1, len(args.glyphs)) * (np.random.rand() < args.p_letter)]
+        pos = (Y[i, 0] if Y[i, 0] < 27 else
+               np.random.randint(1, len(args.glyphs)) * (np.random.rand() < args.p_letter))
+        d_letters[i] = args.glyphs[int(pos)]
             
     # When PIL draws tiles of different font sizes, they unfortunately are not centered.
     # This code stores the amount of offsets we need to center a tile and stores a font object 
@@ -327,7 +328,7 @@ def main():
         # Copy over background
         y = n_offset + d_off_y[i]
         x = n_offset + d_off_x[i]
-        X[i, :, :, 0] = np.clip(bg[i % n, 5, y : y + args.n_fg_pixels, x : x + args.n_fg_pixels], 0, 255)
+        X[i, 0, :, :] = np.clip(bg[i % n, 5, y : y + args.n_fg_pixels, x : x + args.n_fg_pixels], 0, 255)
     print()
     
     # make sure data directory exists
@@ -351,7 +352,7 @@ def main():
         plot_tile_positions(args, Y, n_offset, d_off_x, d_off_y)
         plot_other_distributions(args, n_offset, d_angle, d_warp, d_font_size, range_font_sizes,
                                  d_tile_noise_weight, d_font_noise_weight, d_blur_weight)
-        plot_generation(args, n, bg, X[-n:, :, :, 0], Y[-n:], d_letters[-10:])
+        plot_generation(args, n, bg, X[-n:, 0, :, :], Y[-n:], d_letters[-10:])
 
 # Run program
 if __name__ == "__main__":

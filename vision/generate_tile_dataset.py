@@ -13,28 +13,42 @@ import argparse
 
 def arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--name", default='train', help="base name of output file")
-    parser.add_argument("--n_images", default=int(1E5), help="number of images in output file", type=int)
-    parser.add_argument("--n_border", default=3, help="pixels of border around each letter", type=int)
-    parser.add_argument("--n_fg_pixels", default=24, help="output image size", type=int)
-    parser.add_argument("--n_bg_pixels", default=48, help="size of background for smooth rotates and warps", type=int)
-    parser.add_argument("--min_font_size", default=16, help="smallest_font to draw", type=int)
-    parser.add_argument("--max_font_size", default=23, help="largest font to draw", type=int)
-    parser.add_argument("--p_letter", default=0.9, help="probability that we have a letter tile", type=float)
-    parser.add_argument('--glyphs', default=' ABCDEFGHIJKLMNOPQRSTUVWXYZ', help='glyphs to generate for dataset')
-    parser.add_argument('--fonts_folder', default='fonts', help='folder we can find font ttfs in')
-    parser.add_argument('--plot', default=False, action='store_true', help='whether to plot')
+    parser.add_argument("--name", default='train',
+                        help="base name of output file")
+    parser.add_argument("--n_images", default=int(1E5), type=int,
+                        help="number of images in output file")
+    parser.add_argument("--n_border", default=3, type=int,
+                        help="pixels of border around each letter")
+    parser.add_argument("--n_fg_pixels", default=24, type=int,
+                        help="output image size")
+    parser.add_argument("--n_bg_pixels", default=48, type=int,
+                        help="size of background for smooth rotates and warps")
+    parser.add_argument("--min_font_size", default=16, type=int,
+                        help="smallest_font to draw")
+    parser.add_argument("--max_font_size", default=23, type=int,
+                        help="largest font to draw")
+    parser.add_argument("--p_letter", default=0.9, type=float,
+                        help="probability that we have a letter tile")
+    parser.add_argument('--glyphs', default=' ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+                        help='glyphs to generate for dataset')
+    parser.add_argument('--fonts_folder', default='fonts',
+                        help='folder we can find font ttfs in')
+    parser.add_argument('--plot', default=False, action='store_true',
+                        help='whether to plot')
     return parser.parse_args()
 
 def plot_class_distribution(args, labels):
-    # Show that we're generating more blank tiles.
+    """
+    Show that we're generating more blank tiles.
+    """
     b = np.bincount(labels)
+    plot_name ='plots/%s-class-distribution.png' % args.name
     plt.plot(b, '*-')
     plt.axis([-1, len(b), 0, np.max(b)])
     plt.title('Class Distribution')
     plt.xlabel('Category')
     plt.ylabel('Count')
-    plt.savefig('plots/%s-class-distribution.png' % args.name, dpi=160, bbox_inches='tight')
+    plt.savefig(plot_name, dpi=160, bbox_inches='tight')
 
 def plot_tile_positions(args, Y, n_offset, d_off_x, d_off_y):
     count_blank = np.zeros((n_offset * 2 + 1, n_offset * 2 + 1), dtype=np.float)
@@ -51,7 +65,7 @@ def plot_tile_positions(args, Y, n_offset, d_off_x, d_off_y):
     fig = plt.figure(figsize=(8,8))
     plt.scatter(xv, yv, s=count_blank, c='r', alpha=0.5)
     plt.scatter(xv, yv, s=count_letter, c='b', alpha=0.3)
-    plt.title('Frequency of Tile Positions: blue is non-zero label, red is classified as none')
+    plt.title('Frequency of Tile Positions: blue is non-zero label, red is classified none')
     plt.xlabel('X Offset')
     plt.ylabel('Y Offset')
     plt.axis('equal')
@@ -69,8 +83,10 @@ def plot_other_distributions(args, n_offset, d_angle, d_warp, d_font_size, range
 
     axs[0][1].set_title('Example Affine Transforms')
     for i in range(32):
-        xs = [d_warp[i, 0, 0], d_warp[i, 1, 0], d_warp[i, 3, 0], d_warp[i, 2, 0], d_warp[i, 0, 0]]
-        ys = [d_warp[i, 0, 1], d_warp[i, 1, 1], d_warp[i, 3, 0], d_warp[i, 2, 1], d_warp[i, 0, 1]]
+        xs = [d_warp[i, 0, 0], d_warp[i, 1, 0], d_warp[i, 3, 0],
+              d_warp[i, 2, 0], d_warp[i, 0, 0]]
+        ys = [d_warp[i, 0, 1], d_warp[i, 1, 1], d_warp[i, 3, 0],
+              d_warp[i, 2, 1], d_warp[i, 0, 1]]
         axs[0][1].plot(xs, ys)
 
     axs[0][1].set_xlim(0 - n_offset, args.n_bg_pixels + n_offset)
@@ -87,7 +103,8 @@ def plot_other_distributions(args, n_offset, d_angle, d_warp, d_font_size, range
     axs[1][1].set_title('Weights')
     axs[1][1].set_ylim(0, 1)
     axs[1][1].legend(loc=2)
-    plt.savefig('plots/%s-distributions.png' % args.name, dpi=160, bbox_inches='tight')
+    plot_name = 'plots/%s-distributions.png' % args.name
+    plt.savefig(plot_name, dpi=160, bbox_inches='tight')
 
 def plot_fonts(args, range_font_sizes, font_filenames, imgs):
     # View some cutouts of how well the network did
@@ -98,7 +115,8 @@ def plot_fonts(args, range_font_sizes, font_filenames, imgs):
     imgs = np.array(imgs, dtype=np.uint8)
 
     # Prepare cutouts
-    cutouts = np.zeros(((imgs.shape[1] + border) * sy, (imgs.shape[2] + border) * sx), dtype=np.uint8) + 128
+    cutouts = np.zeros(((imgs.shape[1] + border) * sy,
+                        (imgs.shape[2] + border) * sx), dtype=np.uint8) + 128
     for i in range(min(sx * sy, len(imgs))):
         y = i // sx * (imgs.shape[1] + border)
         x = i  % sx * (imgs.shape[2] + border)
@@ -127,8 +145,10 @@ def plot_generation(args, n, bg, X, Y, d_letters):
     for i in range(n):
         axs[i][0].set_ylabel('%c %.2f' % (d_letters[i], Y[i, 1]))
         for j in range(m - 1):
-            axs[i][j].imshow(bg[i, j], interpolation="nearest", vmin=0, vmax=255, cmap=plt.get_cmap('gray'))
-        axs[i][m - 1].imshow(X[i, 0], interpolation="nearest", vmin=0, vmax=255, cmap=plt.get_cmap('gray'))
+            axs[i][j].imshow(bg[i, j], interpolation="nearest", vmin=0,
+                             vmax=255, cmap=plt.get_cmap('gray'))
+        axs[i][m - 1].imshow(X[i], interpolation="nearest", vmin=0,
+                             vmax=255, cmap=plt.get_cmap('gray'))
 
     plt.savefig('plots/%s-generation.png' % args.name, dpi=160, bbox_inches='tight')
     
@@ -137,15 +157,18 @@ def main():
 
     ## Common variables derived from arguments
     range_font_sizes = np.arange(args.min_font_size, args.max_font_size)
-    corners = np.float32([[0, 0], [args.n_bg_pixels, 0], [0, args.n_bg_pixels], [args.n_bg_pixels, args.n_bg_pixels]])
+    corners = np.float32([[0, 0], [args.n_bg_pixels, 0], [0, args.n_bg_pixels],
+                          [args.n_bg_pixels, args.n_bg_pixels]])
     font_filenames = os.listdir(args.fonts_folder)
     n_offset = (args.n_bg_pixels - args.n_fg_pixels) // 2
 
     # Dataset X and Y
-    X = np.zeros((args.n_images, 1, args.n_fg_pixels, args.n_fg_pixels), dtype=np.uint8)
+    X = np.zeros((args.n_images, 1, args.n_fg_pixels, args.n_fg_pixels),
+                 dtype=np.uint8)
     Y = np.zeros((args.n_images, 2), dtype=np.float32)
 
-    # Prepare Y by filling the one-hot class in the first len(letter) columns and then the normalized distance in the last column
+    # Prepare Y by filling the one-hot class in the first len(letter) columns
+    # and then the normalized distance in the last column
     labels = (np.random.randint(1, len(args.glyphs), size=args.n_images) *
               (np.random.rand(args.n_images) < args.p_letter))
     for i, label in enumerate(labels):
@@ -153,19 +176,28 @@ def main():
 
     ## Prepare background
     # Generate the shapes for the background
-    d_bg_median_blur = np.random.choice(np.arange(3, args.n_bg_pixels // 4 + 1, 2), size=args.n_images)
+    d_bg_median_blur = np.random.choice(np.arange(3, args.n_bg_pixels // 4 + 1, 2),
+                                        size=args.n_images)
 
     # Whether to show a tile or not. Always true for tiles, True half the time for blank tiles
     d_show_tile = np.logical_or(np.random.rand(args.n_images) < 0.5, Y[:, 0] > 0)
 
     # The size of the shadow
-    d_shadow_x = np.random.randint(-args.n_fg_pixels // 16, args.n_fg_pixels // 16 + 1, size=args.n_images)
-    d_shadow_y = np.random.randint(-args.n_fg_pixels // 16, args.n_fg_pixels // 16 + 1, size=args.n_images)
-    d_shadow_weight = np.clip(np.random.normal(loc=0.0, scale=0.05, size=args.n_images), 1E-6, 1.0)
+    d_shadow_x = np.random.randint(-args.n_fg_pixels // 16,
+                                   args.n_fg_pixels // 16 + 1, size=args.n_images)
+    d_shadow_y = np.random.randint(-args.n_fg_pixels // 16,
+                                   args.n_fg_pixels // 16 + 1, size=args.n_images)
+    d_shadow_weight = np.clip(np.random.normal(loc=0.0, scale=0.05,
+                                               size=args.n_images), 1E-6, 1.0)
 
     # Distributions for while font file and font size to use
     d_font_file = np.random.randint(len(font_filenames), size=args.n_images)
-    d_font_size = np.clip(np.array(np.random.normal(loc=np.mean(range_font_sizes), scale=np.log(np.ptp(range_font_sizes)), size=args.n_images) + 0.5, dtype=np.int), np.min(range_font_sizes), np.max(range_font_sizes))
+    d_font_size = np.clip(np.array(np.random.normal(loc=np.mean(range_font_sizes),
+                                                    scale=np.log(np.ptp(range_font_sizes)),
+                                                    size=args.n_images) + 0.5,
+                                   dtype=np.int),
+                          np.min(range_font_sizes),
+                          np.max(range_font_sizes))
 
     # The size of the blur affects the shapes generated by bluring
     d_tile_median_blur = np.random.choice(np.array(np.arange(3, args.n_fg_pixels // 4 + 1, 2), dtype=np.int), size=args.n_images)
@@ -227,11 +259,12 @@ def main():
             rolls[letter][font_filename] = {}
             fonts[letter][font_filename] = {}
             for font_size in range_font_sizes:
-                fonts[letter][font_filename][font_size] = ImageFont.truetype(font_filename, font_size, encoding='unic')
+                font = ImageFont.truetype(font_filename, font_size, encoding='unic')
+                fonts[letter][font_filename][font_size] = font
 
                 # Draw the letter 
                 img = Image.new('L', (args.n_fg_pixels, args.n_fg_pixels), 'white')
-                ImageDraw.Draw(img).text((0, 0), text=letter, font=fonts[letter][font_filename][font_size])
+                ImageDraw.Draw(img).text((0, 0), text=letter, font=font)
                 img = np.array(img, dtype=np.uint8)
 
                 # Find the number of whitespace on each side of the image
@@ -316,14 +349,17 @@ def main():
             
 
         # Rotate the letter
-        bg[i % n, 3, :, :] = scipy.ndimage.rotate(bg[i % n, 2], d_angle[i], reshape=False, cval=mean_color)
+        bg[i % n, 3, :, :] = scipy.ndimage.rotate(bg[i % n, 2], d_angle[i],
+                                                  reshape=False, cval=mean_color)
 
         # Affine transform 
         transform = cv2.getPerspectiveTransform(corners, d_warp[i])
-        bg[i % n, 4, :, :] = cv2.warpPerspective(bg[i % n, 3], transform, (args.n_bg_pixels, args.n_bg_pixels))
+        bg[i % n, 4, :, :] = cv2.warpPerspective(bg[i % n, 3], transform,
+                                                 (args.n_bg_pixels, args.n_bg_pixels))
 
         # Blur
-        bg[i % n, 5, :, :] = cv2.GaussianBlur(bg[i % n, 4], (5,5), 0) * d_blur_weight[i] + bg[i % n, 4] * (1 - d_blur_weight[i])
+        blur = cv2.GaussianBlur(bg[i % n, 4], (5,5), 0)
+        bg[i % n, 5, :, :] = blur * d_blur_weight[i] + bg[i % n, 4] * (1 - d_blur_weight[i])
 
         # Copy over background
         y = n_offset + d_off_y[i]
